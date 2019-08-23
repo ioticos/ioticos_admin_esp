@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "/Users/gyp/Documents/Arduino/ioticos_admin"
+		}
+	],
+	"settings": {
+		"terminal.integrated.env.osx": {
+			"PATH": "/Users/gyp/.platformio/penv/bin:/Users/gyp/.platformio/penv:/Users/gyp/anaconda3/bin:/Users/gyp/anaconda3/condabin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+			"PLATFORMIO_CALLER": "vscode"
+		}
+	}
+}
