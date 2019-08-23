@@ -5,3 +5,4 @@ IoTicos Admin Esp, nos permite enviar datos en tiempo real mediante MQTT así co
 Utilizamos como contraparte, La plataforma IoT IoTicos Admin que encontrarás en:https://github.com/ioticos/ioticos_admin <br>
 De momento, funciona para esp32, próximamente en esp8266. <br>
 
+Más información en <a src="https://ioticos.org">IoTicos.org</a>
