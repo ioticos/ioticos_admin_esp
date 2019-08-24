@@ -6,17 +6,22 @@
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
 //*********************************
 //*********** CONFIG **************
 //*********************************
 
 #define WIFI_PIN 17
+#define DHTPIN 27
+#define DHTTYPE    DHT11
 
 #define LED 2 //On Board LED
- 
+
 int brightness = 0;    // how bright the LED is
 int fadeAmount = 5;    // how many points to fade the LED by
- 
+
 // setting PWM properties
 const int freq = 5000;
 const int ledChannel = 0;
@@ -26,7 +31,7 @@ const int resolution = 8; //Resolution 8, 10, 12, 15
 const String serial_number = "111";
 const String insert_password = "121212";
 const String get_data_password = "232323";
-const char*  server = "ioticosadmin.ml";
+const char*  server = "ioticos.000webhostapp.com";
 
 //MQTT
 const char *mqtt_server = "ioticos.org";
@@ -46,6 +51,8 @@ WiFiClientSecure client2;
 
 Separador s;
 
+DHT dht(DHTPIN, DHTTYPE);
+
 
 //************************************
 //***** DECLARACION FUNCIONES ********
@@ -55,6 +62,8 @@ void callback(char* topic, byte* payload, unsigned int length);
 void reconnect();
 void send_mqtt_data();
 void send_to_database();
+void readDHTHumidity();
+void readDHTTemperature();
 
 
 //*************************************
@@ -77,23 +86,23 @@ void setup() {
   randomSeed(analogRead(0));
 
   pinMode(LED,OUTPUT);
-  
+
   // configure LED PWM functionalitites
   ledcSetup(ledChannel, freq, resolution);
-  
+
   // attach the channel to the GPIO2 to be controlled
   ledcAttachPin(LED, ledChannel);
 
   Serial.begin(115200);
 
-  
+
   pinMode(WIFI_PIN,INPUT_PULLUP);
 
   wifiManager.autoConnect("IoTicos Admin");
   Serial.println("Conexión a WiFi exitosa!");
 
 
-  
+
   //client2.setCACert(web_cert);
 
   while(!topic_obteined){
@@ -126,7 +135,7 @@ void loop() {
   //si estamos conectados a mqtt enviamos mensajes
   if (millis() - milliseconds > 3000){
     milliseconds = millis();
-    
+
 
     if(mqttclient.connected()){
       //set mqtt cert
@@ -197,7 +206,7 @@ void reconnect() {
 		if (mqttclient.connect(clientId.c_str(),mqtt_user,mqtt_pass)) {
 			Serial.println("Connected!");
 			// We subscribe to topic
-      
+
 			mqttclient.subscribe(device_topic_subscribe);
 
 		} else {
@@ -212,7 +221,7 @@ void reconnect() {
 
 //función para obtener el tópico perteneciente a este dispositivo
 bool get_topic(int length){
-  
+
   Serial.println("\nIniciando conexión segura para obtener tópico raíz...");
 
   if (!client2.connect(server, 443)) {
@@ -220,11 +229,12 @@ bool get_topic(int length){
   }else {
     Serial.println("Conectados a servidor para obtener tópico - ok");
     // Make a HTTP request:
+    String data = "gdp="+get_data_password+"&sn="+serial_number+"\r\n";
     client2.print(String("POST ") + "/app/getdata/gettopics" + " HTTP/1.1\r\n" +\
                  "Host: " + server + "\r\n" +\
                  "Content-Type: application/x-www-form-urlencoded"+ "\r\n" +\
-                 "Content-Length: 17" + "\r\n\r\n" +\
-                 "gdp="+get_data_password+"&sn="+serial_number+"\r\n" +\
+                 "Content-Length: " + String (data.length()) + "\r\n\r\n" +\
+                 data +\
                  "Connection: close\r\n\r\n");
 
     Serial.println("Solicitud enviada - ok");
@@ -239,14 +249,14 @@ bool get_topic(int length){
 
     String line;
     while(client2.available()){
-      line += client2.readStringUntil('\n');  
+      line += client2.readStringUntil('\n');
     }
     Serial.println(line);
-    String temporal_topic = s.separa(line,'#',0);
-    String temporal_user = s.separa(line,'#',1);
-    String temporal_password = s.separa(line,'#',2);
+    String temporal_topic = s.separa(line,'#',1);
+    String temporal_user = s.separa(line,'#',2);
+    String temporal_password = s.separa(line,'#',3);
 
-    
+
 
     Serial.println("El tópico es: " + temporal_topic);
     Serial.println("El user MQTT es: " + temporal_user);
@@ -284,11 +294,12 @@ void send_to_database(){
   }else {
     Serial.println("Conectados a servidor para insertar en db - ok");
     // Make a HTTP request:
+    String data = "idp="+insert_password+"&sn="+serial_number+"&temp="+String(temp)+"&hum="+String(hum)+"\r\n";
     client2.print(String("POST ") + "/app/insertdata/insert" + " HTTP/1.1\r\n" +\
                  "Host: " + server + "\r\n" +\
                  "Content-Type: application/x-www-form-urlencoded"+ "\r\n" +\
-                 "Content-Length: 50" + "\r\n\r\n" +\
-                 "idp="+insert_password+"&sn="+serial_number+"&temp="+String(temp)+"&hum="+String(hum)+"\r\n" +\
+                 "Content-Length: " + String (data.length()) + "\r\n\r\n" +\
+                 data +\
                  "Connection: close\r\n\r\n");
 
     Serial.println("Solicitud enviada - ok");
@@ -300,11 +311,11 @@ void send_to_database(){
         break;
       }
     }
-    
+
 
     String line;
     while(client2.available()){
-      line += client2.readStringUntil('\n');  
+      line += client2.readStringUntil('\n');
     }
     Serial.println(line);
     client2.stop();
@@ -313,4 +324,33 @@ void send_to_database(){
 
   }
 
- 
+
+  String readDHTTemperature() {
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  //float t = dht.readTemperature(true);
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return "--";
+  }
+  else {
+    Serial.println(t);
+    return String(t);
+  }
+}
+
+String readDHTHumidity() {
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  if (isnan(h)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return "--";
+  }
+  else {
+    Serial.println(h);
+    return String(h);
+  }
+}
