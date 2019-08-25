@@ -1,5 +1,4 @@
 #include <Arduino.h>
-
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
 #else
@@ -9,13 +8,12 @@
 
 #include <WiFiManager.h>
 #include <Separador.h>
-//#include <certs.h>
+
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
-#include <HTTPClient.h>
 
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
+
+
 //*********************************
 //*********** CONFIG **************
 //*********************************
@@ -50,7 +48,6 @@ const int expected_topic_length = 26;
 WiFiManager wifiManager;
 WiFiClientSecure client;
 PubSubClient mqttclient(client);
-
 WiFiClientSecure client2;
 
 Separador s;
@@ -66,8 +63,7 @@ void callback(char* topic, byte* payload, unsigned int length);
 void reconnect();
 void send_mqtt_data();
 void send_to_database();
-void readDHTHumidity();
-void readDHTTemperature();
+
 
 
 //*************************************
@@ -327,34 +323,3 @@ void send_to_database(){
     }
 
   }
-
-
-  String readDHTTemperature() {
-  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  // Read temperature as Celsius (the default)
-  float t = dht.readTemperature();
-  // Read temperature as Fahrenheit (isFahrenheit = true)
-  //float t = dht.readTemperature(true);
-  // Check if any reads failed and exit early (to try again).
-  if (isnan(t)) {
-    Serial.println("Failed to read from DHT sensor!");
-    return "--";
-  }
-  else {
-    Serial.println(t);
-    return String(t);
-  }
-}
-
-String readDHTHumidity() {
-  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  float h = dht.readHumidity();
-  if (isnan(h)) {
-    Serial.println("Failed to read from DHT sensor!");
-    return "--";
-  }
-  else {
-    Serial.println(h);
-    return String(h);
-  }
-}
