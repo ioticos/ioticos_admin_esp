@@ -1,5 +1,12 @@
 #include <Arduino.h>
+
+#if defined(ESP8266)
+#include <ESP8266WiFi.h>
+#else
 #include <WiFi.h>
+#endif
+
+
 #include <WiFiManager.h>
 #include <Separador.h>
 //#include <certs.h>
@@ -14,9 +21,6 @@
 //*********************************
 
 #define WIFI_PIN 17
-#define DHTPIN 27
-#define DHTTYPE    DHT11
-
 #define LED 2 //On Board LED
 
 int brightness = 0;    // how bright the LED is
@@ -51,7 +55,7 @@ WiFiClientSecure client2;
 
 Separador s;
 
-DHT dht(DHTPIN, DHTTYPE);
+
 
 
 //************************************
