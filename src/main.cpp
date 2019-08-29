@@ -29,6 +29,7 @@ const int ledChannel = 0;
 const int resolution = 8; //Resolution 8, 10, 12, 15
 
 //estos datos deben estar configurador también en las constantes de tu panel
+// NO USES ESTOS DATOS PON LOS TUYOS!!!!
 const String serial_number = "111";
 const String insert_password = "121212";
 const String get_data_password = "232323";
