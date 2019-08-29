@@ -8,7 +8,6 @@
 
 #include <WiFiManager.h>
 #include <Separador.h>
-
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
 
@@ -33,7 +32,7 @@ const int resolution = 8; //Resolution 8, 10, 12, 15
 const String serial_number = "111";
 const String insert_password = "121212";
 const String get_data_password = "232323";
-const char*  server = "ioticos.000webhostapp.com";
+const char*  server = "ioticosadmin.ml";
 
 //MQTT
 const char *mqtt_server = "ioticos.org";
