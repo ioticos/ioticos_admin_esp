@@ -31,12 +31,12 @@ const int resolution = 8; //Resolution 8, 10, 12, 15
 
 
 //estas etiquetas se usan en el main, WifiManager.cpp y WifiManager.h para leer y escribir el archivo config.json
-String etParametro1 = "Serial Number";
-String etParametro2 = "Insert Password";
-String etParametro3 = "Get Data Password";
+String etParametro1 = "Serial_Number";
+String etParametro2 = "Insert_Password";
+String etParametro3 = "Get_Data_Password";
 String etParametro4 = "Server";
-String etParametro5 = "MQTT Server";
-String etParametro6 = "MQTT Port";
+String etParametro5 = "MQTT_Server";
+String etParametro6 = "MQTT_Port";
 
 char serial_number[40];
 char insert_password[40];
