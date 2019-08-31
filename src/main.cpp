@@ -1,17 +1,18 @@
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
+#include <FS.h>
 #else
 #include <WiFi.h>
+#include "SPIFFS.h"
 #endif
 
-//git
+
 #include <WiFiManager.h>
 #include <Separador.h>
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
-
-
 
 //*********************************
 //*********** CONFIG **************
@@ -28,22 +29,45 @@ const int freq = 5000;
 const int ledChannel = 0;
 const int resolution = 8; //Resolution 8, 10, 12, 15
 
-//estos datos deben estar configurador también en las constantes de tu panel
+
+//estas etiquetas se usan en el main, WifiManager.cpp y WifiManager.h para leer y escribir el archivo config.json
+String etParametro1 = "Serial Number";
+String etParametro2 = "Insert Password";
+String etParametro3 = "Get Data Password";
+String etParametro4 = "Server";
+String etParametro5 = "MQTT Server";
+String etParametro6 = "MQTT Port";
+
+char serial_number[40];
+char insert_password[40];
+char get_data_password[40];
+char server[40];
+//MQTT
+char mqtt_server[40];
+char mqtt_port[40];
+
+
+//estos datos deben estar configurados también en las constantes de tu panel
 // NO USES ESTOS DATOS PON LOS TUYOS!!!!
+/*
 const String serial_number = "111";
 const String insert_password = "121212";
 const String get_data_password = "232323";
 const char*  server = "ioticosadmin.ml";
-
 //MQTT
 const char *mqtt_server = "ioticos.org";
 const int mqtt_port = 8883;
+*/
 
 //no completar, el dispositivo se encargará de averiguar qué usuario y qué contraseña mqtt debe usar.
 char mqtt_user[20] = "";
 char mqtt_pass[20] = "";
 
 const int expected_topic_length = 26;
+
+//variables de sistema de archivos
+boolean SPIFFSinit = false; //bandera para verificar que el sistema de archivo se inicio correctamente
+
 
 WiFiManager wifiManager;
 WiFiClientSecure client;
@@ -63,7 +87,10 @@ void callback(char* topic, byte* payload, unsigned int length);
 void reconnect();
 void send_mqtt_data();
 void send_to_database();
-
+void SPIFFSbegin();
+void setupWifi();
+void configValues();
+void configPortal();
 
 
 //*************************************
@@ -98,9 +125,9 @@ void setup() {
 
   pinMode(WIFI_PIN,INPUT_PULLUP);
 
-  wifiManager.autoConnect("IoTicos Admin");
-  Serial.println("Conexión a WiFi exitosa!");
-
+  SPIFFSbegin();//funcion para iniciar el sistema de archivos y verifacar que el config.json no este corrupto
+  setupWifi();//funcion que conecta a wifi via autoconnect. si no lo consigue llama a configPortal que abre el portal de configuracion
+  configValues();//funcion que levanta los parametros del archivo configuracion.json y los guarda en las variables
 
 
   //client2.setCACert(web_cert);
@@ -113,7 +140,8 @@ void setup() {
 
   //set mqtt cert
   //client.setCACert(mqtt_cert);
-  mqttclient.setServer(mqtt_server, mqtt_port);
+  int puertoMQTT = atoi(mqtt_port);
+  mqttclient.setServer(mqtt_server, puertoMQTT);
 	mqttclient.setCallback(callback);
 
 
@@ -229,9 +257,9 @@ bool get_topic(int length){
   }else {
     Serial.println("Conectados a servidor para obtener tópico - ok");
     // Make a HTTP request:
-    String data = "gdp="+get_data_password+"&sn="+serial_number+"\r\n";
+    String data = "gdp="+String(get_data_password)+"&sn="+ String(serial_number)+"\r\n";
     client2.print(String("POST ") + "/app/getdata/gettopics" + " HTTP/1.1\r\n" +\
-                 "Host: " + server + "\r\n" +\
+                 "Host: " + String(server) + "\r\n" +\
                  "Content-Type: application/x-www-form-urlencoded"+ "\r\n" +\
                  "Content-Length: " + String (data.length()) + "\r\n\r\n" +\
                  data +\
@@ -294,9 +322,9 @@ void send_to_database(){
   }else {
     Serial.println("Conectados a servidor para insertar en db - ok");
     // Make a HTTP request:
-    String data = "idp="+insert_password+"&sn="+serial_number+"&temp="+String(temp)+"&hum="+String(hum)+"\r\n";
+    String data = "idp="+String(insert_password)+"&sn="+String(serial_number)+"&temp="+String(temp)+"&hum="+String(hum)+"\r\n";
     client2.print(String("POST ") + "/app/insertdata/insert" + " HTTP/1.1\r\n" +\
-                 "Host: " + server + "\r\n" +\
+                 "Host: " + String(server) + "\r\n" +\
                  "Content-Type: application/x-www-form-urlencoded"+ "\r\n" +\
                  "Content-Length: " + String (data.length()) + "\r\n\r\n" +\
                  data +\
@@ -322,4 +350,137 @@ void send_to_database(){
 
     }
 
+  }
+
+  void SPIFFSbegin(){
+    if (SPIFFS.begin(true)) {
+      SPIFFSinit = true;
+      Serial.println("SPIFFS iniciado");
+      if (!SPIFFS.exists("/configuracion.json")) {
+        Serial.println("Archivo de configuaración dañado, grabado parametros de base");
+
+        DynamicJsonBuffer jsonBufferW;
+        JsonObject& jsonWrite = jsonBufferW.createObject();
+
+        jsonWrite[etParametro1] = "";
+        jsonWrite[etParametro2] = "";
+        jsonWrite[etParametro3] = "";
+        jsonWrite[etParametro4] = "";
+        jsonWrite[etParametro5] = "";
+        jsonWrite[etParametro6] = "";
+
+        File configFile = SPIFFS.open("/configuracion.json", "w");
+        if (!configFile) {
+          Serial.println("failed to open config file for writing");
+        }
+        jsonWrite.printTo(Serial);
+        jsonWrite.printTo(configFile);
+        configFile.close();
+        Serial.println("Archivo grabado correctamente");
+      }else{
+        Serial.println("Ok exixtencia de archivo");
+      }
+    }else{
+      Serial.println("no se puede iniciar el sistema de archivos");
+    }
+  }
+
+  void setupWifi(){
+    delay(10);
+
+    WiFiManager wifiManager;
+    #if defined(ESP8266)
+    String deviceName = "IoTicos Admin ESP_" + String(ESP.getChipId());
+    #else
+    String deviceName = "IoTicos Admin ESP_" + String(ESP_getChipId());
+    #endif
+    char dName[50];
+    deviceName.toCharArray(dName,50);
+    if (!wifiManager.autoConnect(dName)) {
+      configPortal(); //entra en modo AP para configuracion de parametros
+      Serial.println("Entrando a config WiFi");
+    }else{
+      //if you get here you have connected to the WiFi
+      Serial.println("Conectado. Usando los ultimos parametros guardados)");
+    }
+
+  }
+
+
+  void configValues(){
+    Serial.println("mounting FS...desde configValues");
+
+    if (SPIFFSinit) {
+      Serial.println("mounted file system");
+      if (SPIFFS.exists("/configuracion.json")) {
+        //file exists, reading and loading
+        Serial.println("reading config file");
+        File configFile = SPIFFS.open("/configuracion.json", "r");
+        if (configFile) {
+          Serial.println("opened config file");
+          size_t size = configFile.size();
+          // Allocate a buffer to store contents of the file.
+          std::unique_ptr<char[]> buf(new char[size]);
+          Serial.println(size);
+          configFile.readBytes(buf.get(), size);
+          DynamicJsonBuffer jsonBufferR;
+          JsonObject& jsonR = jsonBufferR.parseObject(buf.get());
+          jsonR.printTo(Serial);
+          if (jsonR.success()) {
+            Serial.println("\nparsed json");
+
+
+            strcpy(serial_number, jsonR[etParametro1]);
+            strcpy(insert_password, jsonR[etParametro2]);
+            strcpy(get_data_password, jsonR[etParametro3]);
+            strcpy(server, jsonR[etParametro4]);
+            strcpy(mqtt_server, jsonR[etParametro5]);
+            strcpy(mqtt_port, jsonR[etParametro6]);
+
+            Serial.println(serial_number);
+            Serial.println(insert_password);
+            Serial.println(get_data_password);
+            Serial.println(server);
+            Serial.println(mqtt_server);
+            Serial.println(mqtt_port);
+          } else {
+            Serial.println("failed to load json config");
+          }
+          configFile.close();
+        }
+      }
+    } else {
+      Serial.println("failed to mount FS");
+    }
+    //end read
+  }
+
+  void configPortal(){
+
+    WiFiManager wifiManager;
+    //String deviceName = "IoTicos Admin ESP_" + String(ESP.getChipId());
+    String deviceName = "IoTicos Admin ESP_";
+    char dName[50];
+    deviceName.toCharArray(dName,50);
+
+    Serial.println(deviceName);
+    if (!wifiManager.startConfigPortal(dName) && SPIFFSinit) {
+      Serial.println("failed to connect and hit timeout");
+      delay(3000);
+      //reset and try again, or maybe put it to deep sleep
+      #if defined(ESP8266)
+        ESP.reset();
+      #else
+        ESP.restart();
+      #endif
+      delay(5000);
+    }
+
+    //if you get here you have connected to the WiFi
+    Serial.println("connected...yeey :)");
+    #if defined(ESP8266)
+      ESP.reset();
+    #else
+      ESP.restart();
+    #endif
   }
