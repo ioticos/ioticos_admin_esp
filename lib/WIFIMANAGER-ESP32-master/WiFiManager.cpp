@@ -75,6 +75,7 @@ extern String etParametro5;
 extern String etParametro6;
 
 WiFiManager::WiFiManager() {
+
 }
 
 
@@ -198,7 +199,8 @@ boolean WiFiManager::configPortalHasTimeout()
   if (_configPortalTimeout == 0)
   { // TODO
 #endif
-    _configPortalStart = millis(); // kludge, bump configportal start time to skew timeouts
+    _configPortalStart = millis();
+    // kludge, bump configportal start time to skew timeouts
     return false;
   }
   return (millis() > _configPortalStart + _configPortalTimeout);
