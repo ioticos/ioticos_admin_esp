@@ -224,7 +224,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void reconnect() {
-
+  int reconexion = 0;
 	while (!mqttclient.connected()) {
 		Serial.print("Intentando conexión MQTT SSL");
 		// we create client id
@@ -241,7 +241,12 @@ void reconnect() {
 			Serial.print("falló :( con error -> ");
 			Serial.print(mqttclient.state());
 			Serial.println(" Intentamos de nuevo en 5 segundos");
-
+      if (reconexion == 5) {
+        configPortal();
+        reconexion = 0;
+      }else{
+        reconexion =reconexion +1;
+      }
 			delay(5000);
 		}
 	}

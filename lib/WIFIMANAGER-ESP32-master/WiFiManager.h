@@ -45,7 +45,7 @@ const char HTTP_PORTAL_OPTIONS[] PROGMEM  = "<form action=\"/wifi\"method=\"get\
 const char HTTP_PORTAL_INFO[] PROGMEM     = "<form><div class=\"md-form-group\"><input class=\"md-input\"placeholder=\"{infoValue}\"readonly><label>{info}</label><br/></div></form>";
 const char HTTP_ITEM[] PROGMEM            = "<div><a class=\"enlace\"href='#p'onclick='c(this)'>{v}</a>&nbsp; <span class='q{i}'>{r}%</span></div>";
 const char HTTP_FORM_START[] PROGMEM      = "<div class=\"p-a-md box-color r box-shadow-z1 text-color m-a\"><form method='post'action='wifisave'><div class=\"m-b text-sm\">Configuración</div>";
-const char HTTP_WIFI[] PROGMEM            = "<div class=\"md-form-group\"><input class=\"md-input\"id='s'name='s'length=32><label>SSID</label></div><div class=\"md-form-group\"><input class=\"md-input\"id='p'name='p'length=64 type='password'><label>Password</label></div>";
+const char HTTP_WIFI[] PROGMEM            = "<div class=\"md-form-group\"><input class=\"md-input\"id='s'name='s'length=32><label>SSID</label></div><div class=\"md-form-group\"><input class=\"md-input\"id='p'name='p'length=64 type='password'><label>Pass</label></div>";
 const char HTTP_FORM_PARAM[] PROGMEM      = "";
 const char HTTP_FORM_PARAMETER[] PROGMEM  = "<div class=\"md-form-group\"><input class=\"md-input\"id='{p}'name='{p}'length=64 type='text'placeholder='{vp}'><label for=\"{p}\">{p}</label></div>";
 const char HTTP_FORM_END[] PROGMEM        = "<br/><button class=\"btn primary btn-block p-x-md\"type='submit'>Guardar</button></form></div>";
