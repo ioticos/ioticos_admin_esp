@@ -1,25 +1,30 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#if defined(ESP8266)
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <FS.h>
 #else
 #include <WiFi.h>
 #include "SPIFFS.h"
+
 #endif
 
-
+#include <WiFiClientSecure.h>
 #include <WiFiManager.h>
 #include <Separador.h>
 #include <PubSubClient.h>
-#include <WiFiClientSecure.h>
+
 
 //*********************************
 //*********** CONFIG **************
-//*********************************
-
+//********************************
+//#define ESP8266
 #define WIFI_PIN 17
+
+#ifdef ESP8266
+#else
 #define LED 2 //On Board LED
+#endif
 
 int brightness = 0;    // how bright the LED is
 int fadeAmount = 5;    // how many points to fade the LED by
@@ -68,15 +73,7 @@ const int expected_topic_length = 26;
 //variables de sistema de archivos
 boolean SPIFFSinit = false; //bandera para verificar que el sistema de archivo se inicio correctamente
 
-
-WiFiManager wifiManager;
-WiFiClientSecure client;
-PubSubClient mqttclient(client);
-WiFiClientSecure client2;
-
-Separador s;
-
-
+//const char fingerprint[] PROGMEM = "B9 06 F0 84 1F 2E E6 B3 96 55 F6 0C 61 43 4F 54 8E CF 8B 72";
 
 
 //************************************
@@ -107,20 +104,34 @@ byte sw1 = 0;
 byte sw2 = 0;
 byte slider = 0;
 
+WiFiManager wifiManager;
+WiFiClientSecure client;
 
+PubSubClient mqttclient(client);
+//WiFiClientSecure client2;
+Separador s;
 
 void setup() {
+
   randomSeed(analogRead(0));
+  Serial.begin(115200);
 
+  #ifdef ESP8266
+  pinMode(LED_BUILTIN, OUTPUT);
+  #else
   pinMode(LED,OUTPUT);
+  #endif
 
+  #ifdef ESP8266
+  Serial.println("Configuración PWM ESP8266");
+  #else
   // configure LED PWM functionalitites
   ledcSetup(ledChannel, freq, resolution);
-
   // attach the channel to the GPIO2 to be controlled
   ledcAttachPin(LED, ledChannel);
+  #endif
 
-  Serial.begin(115200);
+
 
 
   pinMode(WIFI_PIN,INPUT_PULLUP);
@@ -130,7 +141,7 @@ void setup() {
   configValues();//funcion que levanta los parametros del archivo configuracion.json y los guarda en las variables
 
 
-  //client2.setCACert(web_cert);
+  //client.setCACert(web_cert);
 
   while(!topic_obteined){
     topic_obteined = get_topic(expected_topic_length);
@@ -148,14 +159,16 @@ void setup() {
 }
 
 void loop() {
-
+  #ifdef ESP8266
+  client.setInsecure();
+  #endif
   if (!client.connected()) {
 		reconnect();
 	}
 
 //si el pulsador wifi esta en low, activamos el acces point de configuración
   if ( digitalRead(WIFI_PIN) == LOW ) {
-    WiFiManager wifiManager;
+
     wifiManager.startConfigPortal("IoTicos Admin");
     Serial.println("Conectados a WiFi!!! :)");
   }
@@ -218,7 +231,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if(command=="slider"){
     Serial.println("Sw1 pasa a estado " + incoming);
     slider = incoming.toInt();
+    #ifdef ESP8266
+    //TODO: PWM para ESP8266
+    #else
     ledcWrite(ledChannel,slider);
+    #endif
   }
 
 }
@@ -256,14 +273,17 @@ void reconnect() {
 bool get_topic(int length){
 
   Serial.println("\nIniciando conexión segura para obtener tópico raíz...");
-
-  if (!client2.connect(server, 443)) {
+  Serial.println(server);
+  #ifdef ESP8266
+  client.setInsecure();
+  #endif
+  if (!client.connect(server, 443)) {
     Serial.println("Falló conexión!");
   }else {
     Serial.println("Conectados a servidor para obtener tópico - ok");
     // Make a HTTP request:
     String data = "gdp="+String(get_data_password)+"&sn="+ String(serial_number)+"\r\n";
-    client2.print(String("POST ") + "/app/getdata/gettopics" + " HTTP/1.1\r\n" +\
+    client.print(String("POST ") + "/app/getdata/gettopics" + " HTTP/1.1\r\n" +\
                  "Host: " + String(server) + "\r\n" +\
                  "Content-Type: application/x-www-form-urlencoded"+ "\r\n" +\
                  "Content-Length: " + String (data.length()) + "\r\n\r\n" +\
@@ -272,8 +292,11 @@ bool get_topic(int length){
 
     Serial.println("Solicitud enviada - ok");
 
-    while (client2.connected()) {
-      String line = client2.readStringUntil('\n');
+    #ifdef ESP8266
+    client.setInsecure();
+    #endif
+    while (client.connected()) {
+      String line = client.readStringUntil('\n');
       if (line == "\r") {
         Serial.println("Headers recibidos - ok");
         break;
@@ -281,8 +304,8 @@ bool get_topic(int length){
     }
 
     String line;
-    while(client2.available()){
-      line += client2.readStringUntil('\n');
+    while(client.available()){
+      line += client.readStringUntil('\n');
     }
     Serial.println(line);
     String temporal_topic = s.separa(line,'#',1);
@@ -307,10 +330,10 @@ bool get_topic(int length){
       temporal_user.toCharArray(mqtt_user,20);
       temporal_password.toCharArray(mqtt_pass,20);
 
-      client2.stop();
+      client.stop();
       return true;
     }else{
-      client2.stop();
+      client.stop();
       return false;
     }
 
@@ -322,13 +345,16 @@ void send_to_database(){
 
   Serial.println("\nIniciando conexión segura para enviar a base de datos...");
 
-  if (!client2.connect(server, 443)) {
+  #ifdef ESP8266
+  client.setInsecure();
+  #endif
+  if (!client.connect(server, 443)) {
     Serial.println("Falló conexión!");
   }else {
     Serial.println("Conectados a servidor para insertar en db - ok");
     // Make a HTTP request:
     String data = "idp="+String(insert_password)+"&sn="+String(serial_number)+"&temp="+String(temp)+"&hum="+String(hum)+"\r\n";
-    client2.print(String("POST ") + "/app/insertdata/insert" + " HTTP/1.1\r\n" +\
+    client.print(String("POST ") + "/app/insertdata/insert" + " HTTP/1.1\r\n" +\
                  "Host: " + String(server) + "\r\n" +\
                  "Content-Type: application/x-www-form-urlencoded"+ "\r\n" +\
                  "Content-Length: " + String (data.length()) + "\r\n\r\n" +\
@@ -337,8 +363,11 @@ void send_to_database(){
 
     Serial.println("Solicitud enviada - ok");
 
-    while (client2.connected()) {
-      String line = client2.readStringUntil('\n');
+    #ifdef ESP8266
+    client.setInsecure();
+    #endif
+    while (client.connected()) {
+      String line = client.readStringUntil('\n');
       if (line == "\r") {
         Serial.println("Headers recibidos - ok");
         break;
@@ -347,18 +376,22 @@ void send_to_database(){
 
 
     String line;
-    while(client2.available()){
-      line += client2.readStringUntil('\n');
+    while(client.available()){
+      line += client.readStringUntil('\n');
     }
     Serial.println(line);
-    client2.stop();
+    client.stop();
 
     }
 
   }
 
   void SPIFFSbegin(){
+    #ifdef ESP8266
+    if (SPIFFS.begin()){
+    #else
     if (SPIFFS.begin(true)) {
+    #endif
       SPIFFSinit = true;
       Serial.println("SPIFFS iniciado");
       if (!SPIFFS.exists("/configuracion.json")) {
@@ -383,7 +416,7 @@ void send_to_database(){
         configFile.close();
         Serial.println("Archivo grabado correctamente");
       }else{
-        Serial.println("Ok exixtencia de archivo");
+        Serial.println("Ok existencia de archivo");
       }
     }else{
       Serial.println("no se puede iniciar el sistema de archivos");
@@ -393,8 +426,8 @@ void send_to_database(){
   void setupWifi(){
     delay(10);
 
-    WiFiManager wifiManager;
-    #if defined(ESP8266)
+
+    #ifdef ESP8266
     String deviceName = "IoTicos Admin ESP_" + String(ESP.getChipId());
     #else
     String deviceName = "IoTicos Admin ESP_" + String(ESP_getChipId());
@@ -462,7 +495,7 @@ void send_to_database(){
 
   void configPortal(){
 
-    WiFiManager wifiManager;
+
     //String deviceName = "IoTicos Admin ESP_" + String(ESP.getChipId());
     String deviceName = "IoTicos Admin ESP_";
     char dName[50];
@@ -473,7 +506,7 @@ void send_to_database(){
       Serial.println("failed to connect and hit timeout");
       delay(3000);
       //reset and try again, or maybe put it to deep sleep
-      #if defined(ESP8266)
+      #ifdef ESP8266
         ESP.reset();
       #else
         ESP.restart();
@@ -483,7 +516,7 @@ void send_to_database(){
 
     //if you get here you have connected to the WiFi
     Serial.println("connected...yeey :)");
-    #if defined(ESP8266)
+    #ifdef ESP8266
       ESP.reset();
     #else
       ESP.restart();
