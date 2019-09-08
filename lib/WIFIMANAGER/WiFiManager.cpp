@@ -13,7 +13,7 @@
 #include "WiFiManager.h"
 #include <ArduinoJson.h>
 
-#if defined(ESP8266)
+#ifdef ESP8266
   #include <FS.h>
 #else
   #include "SPIFFS.h"
@@ -138,7 +138,7 @@ void WiFiManager::setupConfigPortal() {
   dnsServer->start(DNS_PORT, "*", WiFi.softAPIP());
 
   /* Setup web pages: root, wifi config pages, SO captive portal detectors and not found. */
-  #if defined(ESP8266)
+  #ifdef ESP8266
   String rutaRoot = "/" + String(ESP.getChipId());
   #else
   String rutaRoot = "/" + String(ESP_getChipId());
@@ -161,7 +161,7 @@ void WiFiManager::setupConfigPortal() {
 
 boolean WiFiManager::autoConnect() {
 
-  #if defined(ESP8266)
+  #ifdef ESP8266
   String ssid = "ESP" + String(ESP.getChipId());
   #else
   String ssid = "ESP" + String(ESP_getChipId());
@@ -190,9 +190,8 @@ boolean WiFiManager::autoConnect(char const *apName, char const *apPassword) {
   return startConfigPortal(apName, apPassword);
 }
 
-boolean WiFiManager::configPortalHasTimeout()
-{
-#if defined(ESP8266)
+boolean WiFiManager::configPortalHasTimeout(){
+#ifdef ESP8266
   if (_configPortalTimeout == 0 || wifi_softap_get_station_num() > 0)
   {
 #else
@@ -207,10 +206,9 @@ boolean WiFiManager::configPortalHasTimeout()
 }
 
 
-boolean WiFiManager::startConfigPortal()
-{
+boolean WiFiManager::startConfigPortal(){
 
-  #if defined(ESP8266)
+  #ifdef ESP8266
   String ssid = "ESP" + String(ESP.getChipId());
   #else
   String ssid = "ESP" + String(ESP_getChipId());
@@ -218,8 +216,7 @@ boolean WiFiManager::startConfigPortal()
   return startConfigPortal(ssid.c_str(), NULL);
 }
 
-boolean WiFiManager::startConfigPortal(char const *apName, char const *apPassword)
-{
+boolean WiFiManager::startConfigPortal(char const *apName, char const *apPassword){
   //setup AP
   WiFi.mode(WIFI_AP_STA);
   DEBUG_WM("SET AP STA");
@@ -294,8 +291,7 @@ boolean WiFiManager::startConfigPortal(char const *apName, char const *apPasswor
 }
 
 
-int WiFiManager::connectWifi(String ssid, String pass)
-{
+int WiFiManager::connectWifi(String ssid, String pass){
   DEBUG_WM(F("Connecting as wifi client..."));
 
   // check if we've got static_ip settings, if we do, use those.
@@ -321,7 +317,7 @@ int WiFiManager::connectWifi(String ssid, String pass)
     if (WiFi.SSID())
     {
       DEBUG_WM("Using last saved values, should be faster");
-#if defined(ESP8266)
+#ifdef ESP8266
       //trying to fix connection in progress hanging
       ETS_UART_INTR_DISABLE();
       wifi_station_disconnect();
@@ -373,9 +369,8 @@ uint8_t WiFiManager::waitForConnectResult() {
   }
 }
 
-void WiFiManager::startWPS()
-{
-#if defined(ESP8266)
+void WiFiManager::startWPS(){
+#ifdef ESP8266
   DEBUG_WM("START WPS");
   WiFi.beginWPSConfig();
   DEBUG_WM("END WPS");
@@ -409,8 +404,7 @@ String WiFiManager::getConfigPortalSSID() {
   return _apName;
 }
 
-void WiFiManager::resetSettings()
-{
+void WiFiManager::resetSettings(){
   DEBUG_WM(F("settings invalidated"));
   DEBUG_WM(F("THIS MAY CAUSE AP NOT TO START UP PROPERLY. YOU NEED TO COMMENT IT OUT AFTER ERASING THE DATA."));
   // TODO On ESP32 this does not erase the SSID and password. See
@@ -489,109 +483,12 @@ void WiFiManager::handleWifi(boolean scan) {
   page += _customHeadElement;
   page += FPSTR(HTTP_HEAD_END);
 
-  if (scan) {
-    int n = WiFi.scanNetworks();
-    DEBUG_WM(F("Scan done"));
-    if (n == 0) {
-      DEBUG_WM(F("No networks found"));
-      page += F("No networks found. Refresh to scan again.");
-    } else {
-
-      //sort networks
-      int indices[n];
-      for (int i = 0; i < n; i++) {
-        indices[i] = i;
-      }
-
-      // RSSI SORT
-
-      // old sort
-      for (int i = 0; i < n; i++) {
-        for (int j = i + 1; j < n; j++) {
-          if (WiFi.RSSI(indices[j]) > WiFi.RSSI(indices[i])) {
-            std::swap(indices[i], indices[j]);
-          }
-        }
-      }
-
-      /*std::sort(indices, indices + n, [](const int & a, const int & b) -> bool
-        {
-        return WiFi.RSSI(a) > WiFi.RSSI(b);
-        });*/
-
-      // remove duplicates ( must be RSSI sorted )
-      if (_removeDuplicateAPs) {
-        String cssid;
-        for (int i = 0; i < n; i++) {
-          if (indices[i] == -1) continue;
-          cssid = WiFi.SSID(indices[i]);
-          for (int j = i + 1; j < n; j++) {
-            if (cssid == WiFi.SSID(indices[j])) {
-              DEBUG_WM("DUP AP: " + WiFi.SSID(indices[j]));
-              indices[j] = -1; // set dup aps to index -1
-            }
-          }
-        }
-      }
-
-      //display networks in page
-      for (int i = 0; i < n; i++) {
-        if (indices[i] == -1) continue; // skip dups
-        DEBUG_WM(WiFi.SSID(indices[i]));
-        DEBUG_WM(WiFi.RSSI(indices[i]));
-        int quality = getRSSIasQuality(WiFi.RSSI(indices[i]));
-
-        if (_minimumQuality == -1 || _minimumQuality < quality) {
-          String item = FPSTR(HTTP_ITEM);
-          String rssiQ;
-          rssiQ += quality;
-          item.replace("{v}", WiFi.SSID(indices[i]));
-          item.replace("{r}", rssiQ);
-          #if defined(ESP8266)
-          if (WiFi.encryptionType(indices[i]) != ENC_TYPE_NONE)
-          {
-            #else
-          if (WiFi.encryptionType(indices[i]) != WIFI_AUTH_OPEN)
-          {
-            #endif
-            item.replace("{i}", "");
-          }
-          //DEBUG_WM(item);
-          page += item;
-          delay(0);
-        } else {
-          DEBUG_WM(F("Skipping due to quality"));
-        }
-
-      }
-      page += "<br/>";
-    }
-  }
+  
 
   page += FPSTR(HTTP_FORM_START);
   page += FPSTR(HTTP_WIFI);
   char parLength[5];
-  // add the extra parameters to the form
-  for (int i = 0; i < _paramsCount; i++) {
-    if (_params[i] == NULL) {
-      break;
-    }
 
-    String pitem = FPSTR(HTTP_FORM_PARAM);
-    if (_params[i]->getID() != NULL) {
-      pitem.replace("{i}", _params[i]->getID());
-      pitem.replace("{n}", _params[i]->getID());
-      pitem.replace("{p}", _params[i]->getPlaceholder());
-      snprintf(parLength, 5, "%d", _params[i]->getValueLength());
-      pitem.replace("{l}", parLength);
-      pitem.replace("{v}", _params[i]->getValue());
-      pitem.replace("{c}", _params[i]->getCustomHTML());
-    } else {
-      pitem = _params[i]->getCustomHTML();
-    }
-
-    page += pitem;
-  }
   if (_params[0] != NULL) {
     page += "<br/>";
   }
@@ -639,6 +536,7 @@ void WiFiManager::handleWifi(boolean scan) {
 
   DEBUG_WM(F("Sent config page"));
 }
+
 
 /** Handle the WLAN save form and redirect to WLAN config page again */
 void WiFiManager::handleWifiSave() {
@@ -778,7 +676,7 @@ void WiFiManager::handleInfo() {
   page += FPSTR(HTTP_HEAD_END);
   page += FPSTR(HTTP_PORTAL_INFO);
   page.replace("{info}", "Chip Id");
-  #if defined(ESP8266)
+  #ifdef ESP8266
   page.replace("{infoValue}", String(ESP.getChipId()));
   #else
   page.replace("{infoValue}", String(ESP_getChipId()));
@@ -786,14 +684,14 @@ void WiFiManager::handleInfo() {
 
   page += FPSTR(HTTP_PORTAL_INFO);
   page.replace("{info}", "Flash Chip Id");
-  #if defined(ESP8266)
+  #ifdef ESP8266
   page.replace("{infoValue}", String(ESP.getFlashChipId()));
   #else
   page.replace("{infoValue}", "Sin valor para ESP32");
   #endif
   page += FPSTR(HTTP_PORTAL_INFO);
   page.replace("{info}", "Flash Chip Size");
-  #if defined(ESP8266)
+  #ifdef ESP8266
   page.replace("{infoValue}", String(ESP.getFlashChipSize()));
   #else
   page.replace("{infoValue}", "Sin valor para ESP32");
@@ -801,7 +699,7 @@ void WiFiManager::handleInfo() {
 
   page += FPSTR(HTTP_PORTAL_INFO);
   page.replace("{info}", "Flash Chip Real Size ");
-  #if defined(ESP8266)
+  #ifdef ESP8266
   page.replace("{infoValue}", String(ESP.getFlashChipRealSize()));
   #else
   page.replace("{infoValue}", "Sin valor para ESP32");
@@ -827,8 +725,7 @@ void WiFiManager::handleInfo() {
 }
 
 /** Handle the reset page */
-void WiFiManager::handleReset()
-{
+void WiFiManager::handleReset(){
   DEBUG_WM(F("Reset"));
 
   String page = FPSTR(HTTP_HEAD);
@@ -845,7 +742,7 @@ void WiFiManager::handleReset()
 
   DEBUG_WM(F("Sent reset page"));
   delay(5000);
-#if defined(ESP8266)
+#ifdef ESP8266
   ESP.reset();
 #else
   ESP.restart();
@@ -956,7 +853,7 @@ void WiFiManager::handleNotFound() {
 boolean WiFiManager::captivePortal() {
   if (!isIp(server->hostHeader()) ) {
     DEBUG_WM(F("Request redirected to captive portal"));
-    #if defined(ESP8266)
+    #ifdef ESP8266
       server->sendHeader("Location", String("http://") + toStringIp(server->client().localIP()) +"/"+ String(ESP.getChipId()), true);
     #else
     server->sendHeader("Location", String("http://") + toStringIp(server->client().localIP()) +"/"+ String(ESP_getChipId()), true);

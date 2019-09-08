@@ -18,7 +18,7 @@
 //*********************************
 //*********** CONFIG **************
 //********************************
-//#define ESP8266
+
 #define WIFI_PIN 17
 
 #ifdef ESP8266
@@ -50,6 +50,7 @@ char server[40];
 //MQTT
 char mqtt_server[40];
 char mqtt_port[40];
+
 
 
 //estos datos deben estar configurados también en las constantes de tu panel
@@ -90,6 +91,7 @@ void configValues();
 void configPortal();
 
 
+
 //*************************************
 //********      GLOBALS         *******
 //*************************************
@@ -104,12 +106,16 @@ byte sw1 = 0;
 byte sw2 = 0;
 byte slider = 0;
 
+
 WiFiManager wifiManager;
 WiFiClientSecure client;
 
 PubSubClient mqttclient(client);
 //WiFiClientSecure client2;
 Separador s;
+
+
+
 
 void setup() {
 
@@ -130,8 +136,6 @@ void setup() {
   // attach the channel to the GPIO2 to be controlled
   ledcAttachPin(LED, ledChannel);
   #endif
-
-
 
 
   pinMode(WIFI_PIN,INPUT_PULLUP);
@@ -167,8 +171,9 @@ void loop() {
 	}
 
 //si el pulsador wifi esta en low, activamos el acces point de configuración
-  if ( digitalRead(WIFI_PIN) == LOW ) {
-
+  //ELIMINAR ESTA LINEA AL COLOCAR EL pulsador
+  //digitalRead(WIFI_PIN) == LOW
+  if ( false ) {
     wifiManager.startConfigPortal("IoTicos Admin");
     Serial.println("Conectados a WiFi!!! :)");
   }
@@ -190,11 +195,8 @@ void loop() {
         send_to_database();
       }
     }
-
   }
-
   mqttclient.loop();
-
 }
 
 
@@ -237,7 +239,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     ledcWrite(ledChannel,slider);
     #endif
   }
-
 }
 
 void reconnect() {
@@ -373,8 +374,6 @@ void send_to_database(){
         break;
       }
     }
-
-
     String line;
     while(client.available()){
       line += client.readStringUntil('\n');
@@ -425,8 +424,6 @@ void send_to_database(){
 
   void setupWifi(){
     delay(10);
-
-
     #ifdef ESP8266
     String deviceName = "IoTicos Admin ESP_" + String(ESP.getChipId());
     #else
@@ -434,6 +431,7 @@ void send_to_database(){
     #endif
     char dName[50];
     deviceName.toCharArray(dName,50);
+    Serial.println(dName);
     if (!wifiManager.autoConnect(dName)) {
       configPortal(); //entra en modo AP para configuracion de parametros
       Serial.println("Entrando a config WiFi");
@@ -494,14 +492,14 @@ void send_to_database(){
   }
 
   void configPortal(){
-
-
-    //String deviceName = "IoTicos Admin ESP_" + String(ESP.getChipId());
-    String deviceName = "IoTicos Admin ESP_";
+    #ifdef ESP8266
+    String deviceName = "IoTicos Admin ESP_" + String(ESP.getChipId());
+    #else
+    String deviceName = "IoTicos Admin ESP_" + String(ESP_getChipId());
+    #endif
     char dName[50];
     deviceName.toCharArray(dName,50);
-
-    Serial.println(deviceName);
+    Serial.println(dName);
     if (!wifiManager.startConfigPortal(dName) && SPIFFSinit) {
       Serial.println("failed to connect and hit timeout");
       delay(3000);
