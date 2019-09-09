@@ -123,7 +123,7 @@ void setup() {
   Serial.begin(115200);
 
   #ifdef ESP8266
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT); //para utilizar la placa ESP01 se debe comentar esta linea
   #else
   pinMode(LED,OUTPUT);
   #endif
